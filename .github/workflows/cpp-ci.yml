@@ -1,0 +1,134 @@
+name: C++ CI
+
+on:
+  push:
+    paths:
+      - "cpp/**"
+      - "Makefile"
+      - ".github/workflows/cpp-ci.yml"
+  pull_request:
+    paths:
+      - "cpp/**"
+      - "Makefile"
+      - ".github/workflows/cpp-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpp-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 24.04 / GCC 14
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+          - name: Ubuntu 24.04 / Clang 18
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+          - name: macOS 15 ARM64 / Apple Clang
+            os: macos-15
+            cc: clang
+            cxx: clang++
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: >
+          cmake -S cpp -B build/cpp
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=ON
+          -DSTOCKAGENT_BUILD_TESTS=ON
+          -DSTOCKAGENT_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build/cpp --parallel
+
+      - name: Test
+        run: ctest --test-dir build/cpp --output-on-failure --no-tests=error
+
+      - name: Deterministic CLI smoke test
+        run: ./build/cpp/stockagent_trader --events 1000 --seed 42
+
+  sanitizers:
+    name: Ubuntu 24.04 / ASan + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CC: clang-18
+      CXX: clang++-18
+      ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: >
+          cmake -S cpp -B build/cpp-sanitize
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DSTOCKAGENT_BUILD_TESTS=ON
+          -DSTOCKAGENT_WARNINGS_AS_ERRORS=ON
+          -DSTOCKAGENT_ENABLE_ASAN_UBSAN=ON
+
+      - name: Build
+        run: cmake --build build/cpp-sanitize --parallel
+
+      - name: Test
+        run: >
+          ctest --test-dir build/cpp-sanitize
+          --output-on-failure
+          --no-tests=error
+
+  thread-sanitizer:
+    name: Ubuntu 24.04 / ThreadSanitizer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CC: clang-18
+      CXX: clang++-18
+      TSAN_OPTIONS: halt_on_error=1
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: >
+          cmake -S cpp -B build/cpp-tsan
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DSTOCKAGENT_BUILD_TESTS=ON
+          -DSTOCKAGENT_WARNINGS_AS_ERRORS=ON
+          -DSTOCKAGENT_ENABLE_TSAN=ON
+
+      - name: Build tests
+        run: >
+          cmake --build build/cpp-tsan
+          --target stockagent_tests
+          --parallel
+
+      - name: Test concurrent handoff and controls
+        run: >
+          ctest --test-dir build/cpp-tsan
+          --output-on-failure
+          --no-tests=error
+          -R stockagent_unit_tests
