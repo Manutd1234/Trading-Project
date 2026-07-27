@@ -9,11 +9,12 @@ CMAKE_ARGS ?=
 RUN_ARGS ?= --events 10000 --seed 42
 BENCH_ARGS ?=
 OPTIMIZE_ARGS ?=
+BACKTEST_ARGS ?=
 PARALLEL ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: configure build test run bench optimize sanitize clean help
+.PHONY: configure build test run bench optimize backtest sanitize clean help
 
 configure:
 	$(CMAKE) -S cpp -B "$(BUILD_DIR)" \
@@ -39,6 +40,10 @@ optimize: configure
 	$(CMAKE) --build "$(BUILD_DIR)" --target stockagent_strategy_optimizer --parallel $(PARALLEL)
 	"$(BUILD_DIR)/stockagent_strategy_optimizer" $(OPTIMIZE_ARGS)
 
+backtest: configure
+	$(CMAKE) --build "$(BUILD_DIR)" --target stockagent_backtester --parallel $(PARALLEL)
+	"$(BUILD_DIR)/stockagent_backtester" $(BACKTEST_ARGS)
+
 sanitize:
 	$(CMAKE) -S cpp -B "$(SANITIZE_BUILD_DIR)" \
 		-DCMAKE_BUILD_TYPE=Debug \
@@ -63,6 +68,7 @@ help:
 	@echo "  make run        Run the reproducible synthetic-feed demo"
 	@echo "  make bench      Run the latency benchmark"
 	@echo "  make optimize   Run train/holdout strategy parameter selection"
+	@echo "  make backtest   Run causal walk-forward strategy research"
 	@echo "  make sanitize   Build and test with AddressSanitizer and UBSan"
 	@echo "  make clean      Remove normal and sanitizer build directories"
 	@echo
@@ -70,4 +76,5 @@ help:
 	@echo "  BUILD_TYPE=Debug BUILD_DIR=build/debug PARALLEL=4"
 	@echo "  RUN_ARGS='--csv path/to/ticks.csv' BENCH_ARGS='...'"
 	@echo "  OPTIMIZE_ARGS='--csv path/to/ticks.csv'"
+	@echo "  BACKTEST_ARGS='--csv path/to/ticks.csv --strategy auto'"
 	@echo "  CMAKE_ARGS='-DCMAKE_CXX_COMPILER=clang++'"

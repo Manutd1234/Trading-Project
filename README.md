@@ -24,6 +24,7 @@ manually at startup; a timestamped Python/IPC adapter is future work.
 make build
 make test
 make run
+make backtest
 make optimize
 make bench
 ```
@@ -46,7 +47,16 @@ flowchart LR
 
 See [the low-latency engine guide](docs/low-latency-engine.md) for the data
 model, architecture, risk boundary, benchmark methodology, and integration
-guidance.
+guidance. For strategy research, use the
+[causal chronological-validation
+backtester](docs/institutional-backtesting.md): it adds future-event execution,
+latency, partial participation, integrated transaction-cost heuristics, a
+bounded catalog of public-research-inspired single-instrument event-time
+signals, chronological multi-window selection, a held-out final segment, a
+fixed `2x` cost/latency scenario, baselines, and richer risk diagnostics. It
+does not reproduce proprietary firm strategies or implement purged/CPCV/PBO
+validation. The report recommends `no_trade` when the best bounded-catalog
+candidate fails to beat a zero score in every validation window.
 
 > **Research use only.** The C++ engine does not connect to a broker or place
 > live orders. Backtest and simulation results are not investment advice and do

@@ -84,6 +84,11 @@ class SignalStrategy {
 
     [[nodiscard]] double last_score() const noexcept { return last_score_; }
 
+    void on_order_accepted() noexcept {
+        has_ordered_ = true;
+        last_order_event_ = event_count_;
+    }
+
     [[nodiscard]] std::optional<StrategyDecision> on_tick(
         const MarketTick& tick, const Quantity position) noexcept {
         ++event_count_;
@@ -173,10 +178,6 @@ class SignalStrategy {
             }
         }
 
-        if (decision.has_value()) {
-            has_ordered_ = true;
-            last_order_event_ = event_count_;
-        }
         return decision;
     }
 

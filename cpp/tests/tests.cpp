@@ -189,6 +189,32 @@ void test_strategy_ema_crossover() {
     }
 }
 
+void test_strategy_cooldown_starts_after_acceptance() {
+    constexpr std::string_view name =
+        "strategy_cooldown_starts_after_acceptance";
+    stockagent::StrategyConfig config;
+    config.fast_window = 2;
+    config.slow_window = 3;
+    config.momentum_weight = 0.0;
+    config.imbalance_weight = 0.0;
+    config.external_bias_weight = 1.0;
+    config.entry_threshold = 0.5;
+    config.exit_threshold = 0.1;
+    config.cooldown_events = 3;
+    stockagent::SignalStrategy strategy(config);
+    strategy.set_external_bias(1.0);
+
+    static_cast<void>(strategy.on_tick(tick(1), 0));
+    static_cast<void>(strategy.on_tick(tick(2), 0));
+    CHECK(name, strategy.on_tick(tick(3), 0).has_value());
+    CHECK(name, strategy.on_tick(tick(4), 0).has_value());
+    strategy.on_order_accepted();
+    CHECK(name, !strategy.on_tick(tick(5), 0).has_value());
+    CHECK(name, !strategy.on_tick(tick(6), 0).has_value());
+    CHECK(name, !strategy.on_tick(tick(7), 0).has_value());
+    CHECK(name, strategy.on_tick(tick(8), 0).has_value());
+}
+
 void test_strategy_minimum_position_is_safe() {
     constexpr std::string_view name =
         "strategy_minimum_position_is_safe";
@@ -472,6 +498,7 @@ int main() {
         test_strategy_warmup_bias_and_exit();
         test_strategy_extreme_quantities_and_config();
         test_strategy_ema_crossover();
+        test_strategy_cooldown_starts_after_acceptance();
         test_strategy_minimum_position_is_safe();
         test_risk_event_and_order_limits();
         test_engine_fill_and_pnl();

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(stockagent_low_latency_engine VERSION 1.0.0 LANGUAGES CXX)
+project(stockagent_low_latency_engine VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -76,6 +76,18 @@ endfunction()
 stockagent_enable_warnings(stockagent_engine)
 stockagent_enable_sanitizers(stockagent_engine)
 
+add_library(stockagent_backtest
+    src/backtest.cpp
+)
+add_library(stockagent::backtest ALIAS stockagent_backtest)
+target_compile_features(stockagent_backtest PUBLIC cxx_std_20)
+target_include_directories(stockagent_backtest
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+stockagent_enable_warnings(stockagent_backtest)
+stockagent_enable_sanitizers(stockagent_backtest)
+
 add_executable(stockagent_trader apps/trader.cpp)
 target_link_libraries(stockagent_trader PRIVATE stockagent::engine Threads::Threads)
 stockagent_enable_warnings(stockagent_trader)
@@ -91,6 +103,11 @@ target_link_libraries(stockagent_strategy_optimizer PRIVATE stockagent::engine)
 stockagent_enable_warnings(stockagent_strategy_optimizer)
 stockagent_enable_sanitizers(stockagent_strategy_optimizer)
 
+add_executable(stockagent_backtester apps/backtester.cpp)
+target_link_libraries(stockagent_backtester PRIVATE stockagent::backtest)
+stockagent_enable_warnings(stockagent_backtester)
+stockagent_enable_sanitizers(stockagent_backtester)
+
 include(CTest)
 if(BUILD_TESTING AND STOCKAGENT_BUILD_TESTS)
     add_executable(stockagent_tests tests/tests.cpp)
@@ -98,7 +115,18 @@ if(BUILD_TESTING AND STOCKAGENT_BUILD_TESTS)
     stockagent_enable_warnings(stockagent_tests)
     stockagent_enable_sanitizers(stockagent_tests)
 
+    add_executable(stockagent_backtest_tests tests/backtest_tests.cpp)
+    target_link_libraries(
+        stockagent_backtest_tests PRIVATE stockagent::backtest
+    )
+    stockagent_enable_warnings(stockagent_backtest_tests)
+    stockagent_enable_sanitizers(stockagent_backtest_tests)
+
     add_test(NAME stockagent_unit_tests COMMAND stockagent_tests)
+    add_test(
+        NAME stockagent_backtest_unit_tests
+        COMMAND stockagent_backtest_tests
+    )
     add_test(
         NAME stockagent_synthetic_smoke
         COMMAND stockagent_trader --events 2000 --seed 42 --quiet
@@ -132,5 +160,28 @@ if(BUILD_TESTING AND STOCKAGENT_BUILD_TESTS)
         COMMAND stockagent_strategy_optimizer
             --events 5000
             --seed 42
+    )
+    add_test(
+        NAME stockagent_backtester_smoke
+        COMMAND stockagent_backtester
+            --events 6000
+            --folds 3
+            --final-test-percent 20
+            --embargo-events 32
+            --seed 42
+    )
+    add_test(
+        NAME stockagent_backtester_json_smoke
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DBACKTESTER=$<TARGET_FILE:stockagent_backtester>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/validate_backtester_json.cmake
+    )
+    add_test(
+        NAME stockagent_legacy_minimum_fills_rejected
+        COMMAND stockagent_backtester --minimum-fills 2
+    )
+    set_tests_properties(stockagent_legacy_minimum_fills_rejected
+        PROPERTIES WILL_FAIL TRUE
     )
 endif()

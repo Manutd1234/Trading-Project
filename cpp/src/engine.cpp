@@ -116,6 +116,7 @@ std::optional<Fill> TradingEngine::on_market_tick(
         return std::nullopt;
     }
 
+    strategy_.on_order_accepted();
     ++next_order_id_;
     ++stats_.orders_accepted;
     ++stats_.fills;

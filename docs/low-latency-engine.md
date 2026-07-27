@@ -137,6 +137,7 @@ position, partial fills, fees, and configurable slippage.
 make build
 make test
 make run
+make backtest
 make optimize
 make bench
 make sanitize
@@ -151,6 +152,16 @@ reports the median back-to-back `std::chrono::steady_clock` baseline but does
 not subtract it from samples. Raw sub-50-nanosecond results may mostly reflect
 timer quantization. Results are meaningful only when compared on the same
 isolated host, compiler, build type, and CPU-power configuration.
+
+## Strategy-research boundary
+
+The hot-path paper engine intentionally stays small and fills an accepted
+marketable decision against the currently observed BBO. Do not use that
+same-event fill convention to claim backtest performance. The separate
+[`stockagent_backtester`](institutional-backtesting.md) research path enforces
+future-event execution with latency, participation caps, integrated costs,
+chronological multi-window validation, and a held-out final chronological
+test.
 
 ## Future Python/LLM integration pattern
 
